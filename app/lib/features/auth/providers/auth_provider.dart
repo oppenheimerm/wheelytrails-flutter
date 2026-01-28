@@ -58,14 +58,39 @@ final authStartupProvider = FutureProvider<void>((ref) async {
 });
 
 // Auth Controller
-final authControllerProvider = NotifierProvider<AuthController, AuthState>(
-  AuthController.new,
-);
+// Auth Controller
+// We remove the auto-dispose or keep it, but we need to allow overriding the build logic or ensure it reads what we want.
+// BUT, refactoring to simple manual read in main:
+// User wants: "Pass that initial token directly into the ProviderContainer".
+// Best way: use 'overrides' in main.
+// So `authControllerProvider` needs to be overrideable. It already is.
+// But `AuthController` needs to know about the initial state.
+// We can make `AuthController` have a state setter or constructor argument.
+// However, the `Notifier` constructor is `AuthController.new`.
+// We can change the provider to:
+// final authControllerProvider = NotifierProvider<AuthController, AuthState>(() => AuthController());
+// Then in main: `overrides: [ authControllerProvider.overrideWith(() => AuthController(initialState)) ]`
+// Updating AuthController to store initial state:
+
+final authControllerProvider = NotifierProvider<AuthController, AuthState>(() {
+  return AuthController();
+});
 
 class AuthController extends Notifier<AuthState> {
+  final AuthState? _initialOverride;
+
+  AuthController([this._initialOverride]);
+
   @override
   AuthState build() {
-    // Initial state is loading for startup
+    // If override is provided, use it. But we can't easily pass it via default constructor usage
+    // unless we change how provider is declared.
+    // Actually, `AuthController([this._override])` works if we use a closure in provider decl.
+
+    if (_initialOverride != null) {
+      return _initialOverride!;
+    }
+
     return AuthState.initial();
   }
 
