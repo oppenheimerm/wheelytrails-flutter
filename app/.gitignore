@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Google map keys and secrets
+android/app/google-services.json
+android/local.properties
+secrets.json

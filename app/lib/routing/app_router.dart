@@ -5,7 +5,8 @@ import 'package:app/features/auth/screens/login_screen.dart';
 import 'package:app/features/create_trail/create_trail_screen.dart';
 import 'package:app/features/favorites/favorites_screen.dart';
 import 'package:app/features/home/home_screen.dart';
-import 'package:app/features/settings/settings_screen.dart';
+import 'package:app/features/settings/presentation/settings_screen.dart';
+import 'package:app/features/settings/presentation/edit_profile_screen.dart';
 import 'package:app/features/auth/providers/auth_provider.dart';
 import 'package:app/routing/scaffold_with_navigation.dart';
 
@@ -41,6 +42,10 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/edit-profile',
+        builder: (context, state) => const EditProfileScreen(),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
           return ScaffoldWithNavigation(navigationShell: navigationShell);

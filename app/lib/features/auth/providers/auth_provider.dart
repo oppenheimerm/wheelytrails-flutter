@@ -2,29 +2,81 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:app/features/auth/services/auth_service.dart';
 import 'package:app/features/auth/models/user.dart';
+import 'package:app/features/auth/models/country.dart';
 import 'package:dio/dio.dart';
+import 'package:dio_smart_retry/dio_smart_retry.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:app/core/network/auth_interceptor.dart';
+import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 
 // Dio Provider
 final dioProvider = Provider<Dio>((ref) {
-  final dio = Dio();
+  print('DEBUG: Initializing dioProvider...');
+  final dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 10),
+    ),
+  );
   // Using encryptedSharedPreferences: true for Android persistence fix
   final storage = const FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
   );
-  dio.interceptors.add(AuthInterceptor(dio, storage));
+
+  // Add Interceptors
+  dio.interceptors.add(AuthInterceptor(dio, storage, ref));
+
+  // Retry Logic
+  dio.interceptors.add(
+    RetryInterceptor(
+      dio: dio,
+      logPrint: print,
+      retries: 3,
+      retryDelays: const [
+        Duration(seconds: 1),
+        Duration(seconds: 2),
+        Duration(seconds: 3),
+      ],
+    ),
+  );
+
+  // Pretty Logging
+  dio.interceptors.add(
+    PrettyDioLogger(
+      requestHeader: true,
+      requestBody: true,
+      responseHeader: false,
+      responseBody: true,
+      error: true,
+      compact: true,
+      maxWidth: 90,
+    ),
+  );
+
+  print(
+    'DEBUG: dioProvider initialized with Auth, Retry, and Logger interceptors',
+  );
   return dio;
 });
 
 // Auth Service Provider
 final authServiceProvider = Provider<AuthService>((ref) {
+  print('DEBUG: Initializing authServiceProvider...');
   final storage = const FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
   );
-  final authDio = Dio();
+  final authDio = ref.watch(dioProvider);
+  print(
+    'DEBUG: authServiceProvider creating AuthService with watched dioProvider',
+  );
   return AuthService(storage, authDio);
+});
+
+// Countries Provider
+final countriesProvider = FutureProvider<List<Country>>((ref) async {
+  final authService = ref.read(authServiceProvider);
+  return await authService.fetchCountries();
 });
 
 // Auth States
@@ -135,6 +187,48 @@ class AuthController extends Notifier<AuthState> {
     await authService.logoutAsync();
     await Helper.clearUser();
     state = AuthState.unauthenticated();
+  }
+
+  Future<void> updateProfile({
+    required String firstName,
+    required String bio,
+    required String countryCode,
+  }) async {
+    print('DEBUG: AuthController.updateProfile called');
+    // Note: NOT setting state.isLoading = true here to avoid global rebuilds.
+    // The UI should handle its own loading state.
+
+    try {
+      final authService = ref.read(authServiceProvider);
+      // 2. Call Service
+      print('DEBUG: Calling authService.updateSettings...');
+      final updatedSettingsMap = await authService.updateSettings({
+        'firstName': firstName,
+        'bio': bio,
+        'countryCode': countryCode,
+        'gpsAccuracy': 1,
+      });
+      print('DEBUG: authService.updateSettings returned: $updatedSettingsMap');
+
+      if (updatedSettingsMap != null) {
+        // 3. Update Local State via Merge Strategy
+        final currentUser = state.user;
+        if (currentUser != null) {
+          final mergedUser = currentUser.copyWith(
+            firstName: updatedSettingsMap['firstName'] as String?,
+            bio: updatedSettingsMap['bio'] as String?,
+            countryCode: updatedSettingsMap['countryCode'] as String?,
+            gpsAccuracy: (updatedSettingsMap['gpsAccuracy'] as num?)
+                ?.toDouble(),
+          );
+          await Helper.storeUser(mergedUser);
+          state = AuthState.authenticated(mergedUser);
+        }
+      }
+    } catch (e) {
+      print('DEBUG: AuthController Error: $e');
+      rethrow;
+    }
   }
 }
 
