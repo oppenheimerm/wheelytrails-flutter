@@ -41,6 +41,30 @@ class User {
     );
   }
 
+  // copyWith method for state merging
+  User copyWith({
+    String? firstName,
+    String? bio,
+    String? countryCode,
+    double? gpsAccuracy,
+    bool? showRecordingWarning,
+    // Add other fields as needed if they become updatable
+  }) {
+    return User(
+      id: id,
+      firstName: firstName ?? this.firstName,
+      profileUsername: profileUsername,
+      email: email,
+      profilePicture: profilePicture,
+      roles: roles,
+      countryCode: countryCode ?? this.countryCode,
+      bio: bio ?? this.bio,
+      registrationDate: registrationDate,
+      gpsAccuracy: gpsAccuracy ?? this.gpsAccuracy,
+      showRecordingWarning: showRecordingWarning ?? this.showRecordingWarning,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,
