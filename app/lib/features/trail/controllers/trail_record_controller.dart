@@ -4,6 +4,7 @@ import 'package:app/features/trail/models/trail_models.dart';
 import 'package:app/features/trail/models/trail_enums.dart';
 import 'package:app/features/trail/services/location_service.dart';
 import 'package:app/features/trail/services/trail_api_service.dart'; // Add import
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -148,7 +149,7 @@ class TrailRecordController extends StateNotifier<TrailRecordState> {
       final position = await _locationService.getCurrentPosition();
       startLocation = LatLng(position.latitude, position.longitude);
     } catch (e) {
-      print('TrailController: Failed to get current location: $e');
+      debugPrint('TrailController: Failed to get current location: $e');
     }
 
     if (startLocation == null && _authUser != null) {

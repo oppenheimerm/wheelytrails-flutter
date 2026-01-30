@@ -1,0 +1,5 @@
+Analyzing trail_record_controller.dart...                       
+
+   info - Don't invoke 'print' in production code - lib\features\trail\controllers\trail_record_controller.dart:151:7 - avoid_print
+
+1 issue found. (ran in 1.3s)
