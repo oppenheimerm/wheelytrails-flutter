@@ -26,4 +26,12 @@ class TrailApiService {
       print('Dev Log Failed: $e');
     }
   }
+
+  Future<void> createTrail(CreateTrailDTO trailDto) async {
+    try {
+      await _dio.post('/api/trails', data: trailDto.toJson());
+    } catch (e) {
+      throw Exception('Failed to create trail: $e');
+    }
+  }
 }
