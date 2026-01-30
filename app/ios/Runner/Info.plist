@@ -45,5 +45,15 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>WheelyTrails needs your location to show your progress on the map.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>WheelyTrails tracks your location to record your trail even when the app is in the background.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>WheelyTrails needs background location to record trails.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 </dict>
 </plist>

@@ -140,7 +140,7 @@ class AuthController extends Notifier<AuthState> {
     // Actually, `AuthController([this._override])` works if we use a closure in provider decl.
 
     if (_initialOverride != null) {
-      return _initialOverride!;
+      return _initialOverride;
     }
 
     return AuthState.initial();
