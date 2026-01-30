@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:app/features/auth/screens/login_screen.dart';
+import 'package:app/features/splash/splash_screen.dart'; // import splash screen
 import 'package:app/features/create_trail/create_trail_screen.dart';
 import 'package:app/features/favorites/favorites_screen.dart';
 import 'package:app/features/home/home_screen.dart';
@@ -23,12 +24,18 @@ final routerProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
-    initialLocation: '/home',
+    initialLocation: '/splash',
 
     redirect: (context, state) {
       // Eager initialization ensures state is ready.
       final isLoggedIn = authState.status == AuthStatus.authenticated;
       final isLoggingIn = state.uri.toString() == '/login';
+      final isSplashing = state.uri.toString() == '/splash';
+
+      // If we are at splash, let the Splash screen handle navigation
+      if (isSplashing) {
+        return null;
+      }
 
       if (!isLoggedIn && !isLoggingIn) {
         return '/login';
@@ -41,6 +48,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
         path: '/edit-profile',
