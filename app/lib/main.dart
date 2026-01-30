@@ -7,7 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPreferences
 import 'package:app/routing/app_router.dart';
-import 'package:app/theme/app_theme.dart';
+import 'package:google_fonts/google_fonts.dart';
+// import 'package:app/theme/app_theme.dart'; // Unused
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -74,14 +75,32 @@ class MyApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Data is ready, just watch router and theme
     final goRouter = ref.watch(routerProvider);
-    final themeMode = ref.watch(themeControllerProvider);
+    // final themeMode = ref.watch(themeControllerProvider); // Unused as we enforce light mode
 
     return MaterialApp.router(
       title: 'WheelyTrails',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.LightTheme,
-      darkTheme: AppTheme.DarkTheme,
-      themeMode: themeMode, // Apply persistent theme
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(
+            0xFF36693D,
+          ), // Used primary color from AppTheme
+          surface: Colors.white,
+        ),
+        textTheme: GoogleFonts.figtreeTextTheme().copyWith(
+          bodyMedium: GoogleFonts.figtree(
+            color: Colors.black,
+            fontWeight: FontWeight.w600,
+          ),
+          bodyLarge: GoogleFonts.figtree(
+            color: Colors.black,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      // darkTheme: AppTheme.DarkTheme, // Explicitly ignoring dark theme as requested
+      themeMode: ThemeMode.light, // Enforce light mode
       routerConfig: goRouter,
     );
   }

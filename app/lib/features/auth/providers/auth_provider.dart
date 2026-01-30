@@ -17,6 +17,7 @@ final dioProvider = Provider<Dio>((ref) {
     BaseOptions(
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
+      baseUrl: 'https://api.wheelytrails.com',
     ),
   );
   // Using encryptedSharedPreferences: true for Android persistence fix
