@@ -83,19 +83,33 @@ class MyApp extends ConsumerWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(
-            0xFF36693D,
-          ), // Used primary color from AppTheme
+          seedColor: const Color(0xFF2D5A27), // Forest Green
           surface: Colors.white,
         ),
         textTheme: GoogleFonts.figtreeTextTheme().copyWith(
-          bodyMedium: GoogleFonts.figtree(
-            color: Colors.black,
-            fontWeight: FontWeight.w600,
-          ),
           bodyLarge: GoogleFonts.figtree(
             color: Colors.black,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.bold,
+          ),
+          bodyMedium: GoogleFonts.figtree(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
+          bodySmall: GoogleFonts.figtree(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
+          labelLarge: GoogleFonts.figtree(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
+          labelMedium: GoogleFonts.figtree(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
+          labelSmall: GoogleFonts.figtree(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
           ),
         ),
       ),
