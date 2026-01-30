@@ -1,3 +1,5 @@
+import 'package:app/features/create_trail/widgets/save_trail_form.dart';
+import 'package:app/features/trail/models/trail_models.dart';
 import 'package:app/features/trail/controllers/trail_record_controller.dart';
 import 'package:app/features/trail/presentation/widgets/poi_selection_sheet.dart';
 import 'package:app/widgets/stat_card.dart';
@@ -56,8 +58,83 @@ class _CreateTrailScreenState extends ConsumerState<CreateTrailScreen> {
     final state = ref.watch(trailRecordControllerProvider);
     final controller = ref.read(trailRecordControllerProvider.notifier);
 
-    // If not recording, show Start Button (Initial View)
+    // If not recording...
     if (!state.isRecording) {
+      // ...but we have points, it means we just finished and need to save.
+      if (state.points.isNotEmpty) {
+        return Scaffold(
+          appBar: AppBar(title: const Text('Complete Trail')),
+          body: SaveTrailForm(
+            onSave: (title, description, difficulty, surfaceFlags) async {
+              // Construct DTO
+              final dto = CreateTrailDTO(
+                title: title,
+                description: description,
+                difficulty: difficulty.value,
+                surfaceFlags: surfaceFlags,
+                startLocation: state.points.first,
+                endLocation: state.points.last,
+                waypoints: state.points,
+                pois: state.pois,
+                elevationProfile: state.points
+                    .map((p) => p.altitude ?? 0.0)
+                    .toList(),
+                lengthMeters: state.distanceKm * 1000,
+              );
+
+              try {
+                // Save
+                await controller.saveTrail(dto);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Trail saved successfully!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                  // Reset controller to go back to start
+                  controller.reset();
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error saving trail: $e')),
+                  );
+                }
+              }
+            },
+            onCancel: () {
+              // Discard confirmation? Or just reset.
+              // For simplicity now, just reset (maybe ask confirm in a real app, but requirements didn't specify).
+              // Actually, let's show a dialog before discarding here?
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Discard Trail?'),
+                  content: const Text(
+                    'Are you sure you want to discard this recording?',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        controller.reset();
+                      },
+                      style: TextButton.styleFrom(foregroundColor: Colors.red),
+                      child: const Text('Discard'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      }
+
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

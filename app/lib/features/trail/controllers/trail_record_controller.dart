@@ -1,9 +1,8 @@
 import 'dart:async';
 import 'package:app/features/auth/providers/auth_provider.dart';
 import 'package:app/features/trail/models/trail_models.dart';
-import 'package:app/features/trail/models/trail_enums.dart';
 import 'package:app/features/trail/services/location_service.dart';
-import 'package:app/features/trail/services/trail_api_service.dart'; // Add import
+import 'package:app/features/trail/services/trail_api_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -66,14 +65,11 @@ final trailRecordControllerProvider =
       final locationService = ref.watch(locationServiceProvider);
       final authState = ref.read(authControllerProvider);
       final countries = ref.read(countriesProvider).asData?.value ?? [];
-      // Assuming we fix the provider path or define it.
-      // For now, let's assume trailApiServiceProvider is available or we define it in the controller file temporarily if needed,
-      // but better to import it.
       final apiService = ref.read(trailApiServiceProvider);
 
       return TrailRecordController(
         locationService,
-        apiService, // Add this
+        apiService,
         authUser: authState.user,
         countries: countries,
       );
@@ -81,7 +77,7 @@ final trailRecordControllerProvider =
 
 class TrailRecordController extends StateNotifier<TrailRecordState> {
   final LocationService _locationService;
-  final TrailApiService _apiService; // Add this
+  final TrailApiService _apiService;
   final dynamic _authUser;
   final List<dynamic> _countries;
 
@@ -91,13 +87,12 @@ class TrailRecordController extends StateNotifier<TrailRecordState> {
 
   TrailRecordController(
     this._locationService,
-    this._apiService, { // Add this
+    this._apiService, {
     required dynamic authUser,
     required List<dynamic> countries,
   }) : _authUser = authUser,
        _countries = countries,
        super(const TrailRecordState());
-  // ... (skip down to stopRecording)
 
   Future<StopRecordingResult> stopRecording() async {
     _recordingTimer?.cancel();
@@ -106,7 +101,6 @@ class TrailRecordController extends StateNotifier<TrailRecordState> {
 
     // Minimum Data Guard
     if (state.points.length < 2) {
-      // Too short
       state = state.copyWith(
         isRecording: false,
         isPaused: false,
@@ -118,26 +112,25 @@ class TrailRecordController extends StateNotifier<TrailRecordState> {
       return StopRecordingResult.tooShort;
     }
 
-    // Prepare Trail Object
-    final trail = WtTrail(
-      id: DateTime.now().millisecondsSinceEpoch.toString(), // or Guid
-      points: state.points,
-      pois: state.pois,
-      // We need to calculate flags? Or just use default 0.
-      // User said "Construct the full WtTrail object... surfaceFlags".
-      // We don't have surface selection in UI yet, so 0 is fine.
-      surfaceFlags: 0,
-      difficulty: 0,
-      createdAt: DateTime.now(),
-    );
-
-    // LOG TO DEV
-    // Fire and forget so we don't await/block UI?
-    // User said "Immediately call... If the dev log fails... just print".
-    _apiService.logTrailDev(trail);
-
+    // Do not reset state here; let the UI read data for the form.
     state = state.copyWith(isRecording: false, isPaused: false);
     return StopRecordingResult.success;
+  }
+
+  Future<void> saveTrail(CreateTrailDTO dto) async {
+    await _apiService.createTrail(dto);
+  }
+
+  void reset() {
+    state = state.copyWith(
+      points: [],
+      pois: [],
+      elapsedTime: Duration.zero,
+      distanceKm: 0.0,
+      isRecording: false,
+      isPaused: false,
+      lastKnownLocation: null,
+    );
   }
 
   /// Initialize: Check permissions and set initial location
@@ -194,10 +187,6 @@ class TrailRecordController extends StateNotifier<TrailRecordState> {
   void pauseRecording() {
     state = state.copyWith(isPaused: true);
     // Keep timer running as requested, but stop GPS accumulation (handled in stream)
-  }
-
-  int calculateSurfaceFlags(List<SurfaceType> selectedTypes) {
-    return calculateTotalSurfaceValue(selectedTypes);
   }
 
   void addPoi(PoiType type, String? note) {
