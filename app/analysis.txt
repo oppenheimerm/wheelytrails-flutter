@@ -1,0 +1,21 @@
+Analyzing trail_record_controller.dart...                       
+
+  error - Target of URI doesn't exist: 'package:geolocator/geolocator.dart' - lib\features\trail\controllers\trail_record_controller.dart:9:8 - uri_does_not_exist
+  error - Target of URI doesn't exist: 'package:google_maps_flutter/google_maps_flutter.dart' - lib\features\trail\controllers\trail_record_controller.dart:10:8 - uri_does_not_exist
+  error - Undefined class 'LatLng' - lib\features\trail\controllers\trail_record_controller.dart:22:9 - undefined_class
+  error - Undefined class 'LatLng' - lib\features\trail\controllers\trail_record_controller.dart:45:5 - undefined_class
+  error - The name 'Position' isn't a type, so it can't be used as a type argument - lib\features\trail\controllers\trail_record_controller.dart:87:22 - non_type_as_type_argument
+  error - Undefined class 'LatLng' - lib\features\trail\controllers\trail_record_controller.dart:146:5 - undefined_class
+  error - The method 'LatLng' isn't defined for the type 'TrailRecordController' - lib\features\trail\controllers\trail_record_controller.dart:149:23 - undefined_method
+   info - Don't invoke 'print' in production code - lib\features\trail\controllers\trail_record_controller.dart:151:7 - avoid_print
+  error - The method 'LatLng' isn't defined for the type 'TrailRecordController' - lib\features\trail\controllers\trail_record_controller.dart:165:27 - undefined_method
+  error - The method 'LatLng' isn't defined for the type 'TrailRecordController' - lib\features\trail\controllers\trail_record_controller.dart:246:22 - undefined_method
+  error - The property 'latitude' can't be unconditionally accessed because the receiver can be 'null' - lib\features\trail\controllers\trail_record_controller.dart:246:38 - unchecked_use_of_nullable_value
+  error - The property 'longitude' can't be unconditionally accessed because the receiver can be 'null' - lib\features\trail\controllers\trail_record_controller.dart:246:57 - unchecked_use_of_nullable_value
+  error - The property 'latitude' can't be unconditionally accessed because the receiver can be 'null' - lib\features\trail\controllers\trail_record_controller.dart:248:18 - unchecked_use_of_nullable_value
+  error - The property 'longitude' can't be unconditionally accessed because the receiver can be 'null' - lib\features\trail\controllers\trail_record_controller.dart:249:18 - unchecked_use_of_nullable_value
+  error - The property 'altitude' can't be unconditionally accessed because the receiver can be 'null' - lib\features\trail\controllers\trail_record_controller.dart:250:28 - unchecked_use_of_nullable_value
+  error - The property 'timestamp' can't be unconditionally accessed because the receiver can be 'null' - lib\features\trail\controllers\trail_record_controller.dart:251:29 - unchecked_use_of_nullable_value
+  error - The property 'altitude' can't be unconditionally accessed because the receiver can be 'null' - lib\features\trail\controllers\trail_record_controller.dart:256:36 - unchecked_use_of_nullable_value
+  error - Undefined name 'Geolocator' - lib\features\trail\controllers\trail_record_controller.dart:267:30 - undefined_identifier
+
