@@ -8,9 +8,6 @@ class User {
   final String countryCode;
   final String bio;
   final DateTime registrationDate;
-  final double gpsAccuracy;
-  final bool showRecordingWarning;
-
   User({
     required this.id,
     required this.firstName,
@@ -21,8 +18,6 @@ class User {
     required this.countryCode,
     required this.bio,
     required this.registrationDate,
-    required this.gpsAccuracy,
-    required this.showRecordingWarning,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -36,8 +31,6 @@ class User {
       countryCode: json['countryCode'],
       bio: json['bio'],
       registrationDate: DateTime.parse(json['registrationDate']),
-      gpsAccuracy: (json['gpsAccuracy'] as num).toDouble(),
-      showRecordingWarning: json['showRecordingWarning'],
     );
   }
 
@@ -46,8 +39,6 @@ class User {
     String? firstName,
     String? bio,
     String? countryCode,
-    double? gpsAccuracy,
-    bool? showRecordingWarning,
     // Add other fields as needed if they become updatable
   }) {
     return User(
@@ -60,8 +51,6 @@ class User {
       countryCode: countryCode ?? this.countryCode,
       bio: bio ?? this.bio,
       registrationDate: registrationDate,
-      gpsAccuracy: gpsAccuracy ?? this.gpsAccuracy,
-      showRecordingWarning: showRecordingWarning ?? this.showRecordingWarning,
     );
   }
 
@@ -76,8 +65,6 @@ class User {
       'countryCode': countryCode,
       'bio': bio,
       'registrationDate': registrationDate.toIso8601String(),
-      'gpsAccuracy': gpsAccuracy,
-      'showRecordingWarning': showRecordingWarning,
     };
   }
 }

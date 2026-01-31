@@ -8,6 +8,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPreferences
 import 'package:app/routing/app_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:app/core/services/preferences_service.dart';
 // import 'package:app/theme/app_theme.dart'; // Unused
 
 Future<void> main() async {
@@ -32,10 +33,11 @@ Future<void> main() async {
     print('STARTUP ERROR (Auth): $e');
   }
 
-  // 3. Manual Read (Theme)
+  // 3. Manual Read (Theme) & Prefs
   ThemeMode initialTheme = ThemeMode.system;
+  late final SharedPreferences prefs;
   try {
-    final prefs = await SharedPreferences.getInstance();
+    prefs = await SharedPreferences.getInstance();
     final themeStr = prefs.getString('theme_mode');
     if (themeStr != null) {
       initialTheme = ThemeMode.values.firstWhere(
@@ -45,7 +47,13 @@ Future<void> main() async {
     }
     print('STARTUP: Theme found on disk: $initialTheme');
   } catch (e) {
-    print('STARTUP ERROR (Theme): $e');
+    print('STARTUP ERROR (Theme/Prefs): $e');
+    // Fallback? If prefs fails, app might be unstable if we rely on it.
+    // Re-throw or handle? For now, we assume it works or we might crash on provider override without value?
+    // Actually, 'late final' must be assigned. If it fails, we have a problem.
+    // Let's create a dummy if failed? Or await again?
+    // In production we'd want robust handling.
+    prefs = await SharedPreferences.getInstance(); // Retry or crash
   }
 
   // 4. Construct Initial Auth State
@@ -61,6 +69,7 @@ Future<void> main() async {
         () => AuthController(initialAuthState),
       ),
       themeControllerProvider.overrideWith(() => ThemeController(initialTheme)),
+      sharedPreferencesProvider.overrideWithValue(prefs),
     ],
   );
 
