@@ -14,48 +14,20 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
   getting another 401.
  */
 
-class AuthInterceptor extends QueuedInterceptor {
-  final Dio mainDio;
-  // Use a separate Dio instance for refreshing to avoid deadlocks
-  final Dio refreshDio = Dio(
-    BaseOptions(baseUrl: 'https://api.wheelytrails.com'),
-  );
-
-  AuthInterceptor(this.mainDio);
+class AuthInterceptor extends Interceptor {
+  // We removed the mainDio/refreshDio fields as we don't do refresh here anymore.
 
   @override
-  void onError(DioException err, ErrorInterceptorHandler handler) async {
-    if (err.response?.statusCode == 401) {
-      final storage = const FlutterSecureStorage();
-      String? refreshToken = await storage.read(key: 'refreshToken');
-
-      try {
-        // 1. Attempt the refresh using the SEPARATE dio instance
-        final response = await refreshDio.post(
-          '/api/account/identity/refresh',
-          data: {'refreshToken': refreshToken},
-        );
-
-        if (response.statusCode == 200) {
-          final newJwt = response.data['jwtToken'];
-          final newRefresh = response.data['refreshToken'];
-
-          // 2. Save new tokens
-          await storage.write(key: 'jwtToken', value: newJwt);
-          await storage.write(key: 'refreshToken', value: newRefresh);
-
-          // 3. Update headers and RETRY the original request
-          err.requestOptions.headers['Authorization'] = 'Bearer $newJwt';
-
-          // We use mainDio.fetch here to put the request back into the stream
-          final responseRetry = await mainDio.fetch(err.requestOptions);
-          return handler.resolve(responseRetry);
-        }
-      } catch (refreshErr) {
-        // If refresh fails, the session is truly dead
-        // Log out user/Redirect to login
-      }
+  void onRequest(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+  ) async {
+    // Basic JWT attachment
+    const storage = FlutterSecureStorage();
+    final token = await storage.read(key: 'jwtToken');
+    if (token != null) {
+      options.headers['Authorization'] = 'Bearer $token';
     }
-    return super.onError(err, handler);
+    handler.next(options);
   }
 }

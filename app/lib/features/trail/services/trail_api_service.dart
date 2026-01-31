@@ -1,12 +1,13 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:app/features/auth/providers/auth_provider.dart'; // Contains dioProvider
+import 'package:app/features/auth/providers/auth_provider.dart';
 import 'package:app/features/trail/models/trail_models.dart';
 
-// Since I haven't seen the exact path for dioProvider, I'll assume it exists or I might get an error.
-// Wait, I recall seeing 'verify dio injection' in task.md, so dioProvider likely exists.
-// Let's check imports in auth_service if validation fails.
-// Just in case, I will define a basic provider and if it fails I'll fix imports.
+import 'package:path_provider/path_provider.dart';
+import 'package:app/core/network/base_api_service.dart';
 
 final trailApiServiceProvider = Provider<TrailApiService>((ref) {
   final dio = ref.watch(dioProvider);
@@ -14,7 +15,9 @@ final trailApiServiceProvider = Provider<TrailApiService>((ref) {
   return TrailApiService(dio, publicDio);
 });
 
-class TrailApiService {
+enum CreateTrailResult { success, offlineDraft }
+
+class TrailApiService extends BaseApiService {
   final Dio _dio;
   final Dio _publicDio;
 
@@ -24,16 +27,53 @@ class TrailApiService {
     try {
       await _publicDio.post('/api/dev/log-trail', data: trail.toJson());
     } catch (e) {
-      // "Just print the error to the console"
       print('Dev Log Failed: $e');
     }
   }
 
-  Future<void> createTrail(CreateTrailDTO trailDto) async {
+  /// Saves the DTO locally as a JSON file in /draft_trails
+  Future<void> _saveDraftLocally(CreateTrailDTO dto) async {
     try {
-      await _dio.post('/api/trails', data: trailDto.toJson());
+      print('DEBUG: Attempting to save draft locally...');
+      final directory = await getApplicationDocumentsDirectory();
+      final draftsDir = Directory('${directory.path}/draft_trails');
+      if (!await draftsDir.exists()) {
+        await draftsDir.create(recursive: true);
+      }
+
+      // Use timestamp for filename for now
+      final filename = 'draft_${DateTime.now().millisecondsSinceEpoch}.json';
+      final file = File('${draftsDir.path}/$filename');
+
+      await file.writeAsString(jsonEncode(dto.toJson()));
+      print('DEBUG: Draft saved to ${file.path}');
     } catch (e) {
-      throw Exception('Failed to create trail: $e');
+      print('DEBUG: Failed to save draft locally: $e');
+    }
+  }
+
+  /// Returns CreateTrailResult to indicate if sync was immediate or saved as draft
+  Future<CreateTrailResult> createTrail(CreateTrailDTO trailDto) async {
+    try {
+      await safeRequest(
+        (dio) => dio.post('/api/trails', data: trailDto.toJson()),
+        payload: trailDto.toJson(),
+      );
+      return CreateTrailResult.success;
+    } catch (e) {
+      // If safeRequest rethrows, save to Local Drafts here!
+      await _saveDraftLocally(trailDto);
+      return CreateTrailResult.offlineDraft;
+    }
+  }
+
+  Future<void> _logFallback(CreateTrailDTO dto, String error) async {
+    try {
+      final payload = {'errorMessage': error, 'trail': dto.toJson()};
+      await _publicDio.post('/api/dev/log-trail', data: payload);
+      print('DEBUG: Fallback log (Draft) sent successfully.');
+    } catch (e) {
+      print('DEBUG: Fallback log ALSO failed: $e');
     }
   }
 }

@@ -24,61 +24,48 @@ The authentication layer is built upon the following key classes:
   - **Logout**: Clears tokens and user data, resetting state to `unauthenticated`.
 - **`authStartupProvider`**: A `FutureProvider` used to synchronize app startup with session restoration (optional usage in strict mode).
 
-#### 3. `AuthService.dart` (Infrastructure)
-- **Role**: The bridge between the app and the backend API.
+#### 3. `AuthService.dart` (Singleton Infrastructure)
+- **Role**: The centralized "Source of Truth" for authentication.
+- **Pattern**: Implements the **Singleton** pattern (`AuthService.instance`) to ensure a single access point for token management.
 - **Responsibilities**:
-  - **`loginAsync`**: Posts credentials to `/api/access/token`, parses the `AuthResponse`, and saves the `jwtToken` and `refreshToken` to secure storage.
-  - **`restoreSessionAsync`**: Checks for valid tokens on disk. Returns `true` if valid, `false` otherwise.
-  - **Storage**: Uses `FlutterSecureStorage` with `AndroidOptions(encryptedSharedPreferences: true)` for secure, persistent storage.
+  - **`refresh()`**: Centralized logic to read the refresh token, call the API, and update storage.
+  - **`getAccessToken()`**: helper to retrieve the valid JWT.
+  - **Storage**: Manages `FlutterSecureStorage` internally.
 
-#### 4. `AuthInterceptor.dart` (Network Middleware)
-- **Role**: Intercepts all Dio requests to handle authorization automatically.
+#### 4. `AuthInterceptor.dart` (Simplified Middleware)
+- **Role**: Lightweight interceptor for token injection only.
+- **Changes**: 
+  - **Removed**: The complex `QueuedInterceptor` logic has been removed to avoid deadlocks.
+  - **Responsibility**: Now strictly adds `Authorization: Bearer <token>` to headers. It **does not** handle refreshes or retries anymore.
+
+#### 5. `BaseApiService.dart` (New Core Layer)
+- **Role**: Abstract base class for all API services (e.g., `TrailApiService`).
 - **Features**:
-  - **Token Injection**: Adds `Authorization: Bearer <token>` to every request header.
-  - **Automatic Refresh**: Catches `401 Unauthorized` errors.
-    1. Locks the request queue.
-    2. Reads the stored `refreshToken`.
-    3. Calls the refresh endpoint (`/api/account/identity/refresh-token`).
-    4. If successful, updates the stored tokens and **retries the original failed request**.
-    5. If refresh fails, propagates the error (triggering logout).
+  - **`safeRequest()`**: A robust wrapper for API calls that handles:
+    1. **Auth Expiry**: on 401, calls `AuthService.refresh()` and retries once.
+    2. **Transient Errors**: Retries on 5xx or network timeouts with backoff.
+    3. **Logging**: logs failures to `/api/dev/log-trail`.
+  - **Drafts**: If all retries fail, services can fallback to local storage (implemented in `TrailApiService`).
 
-### Authentication Flows
+### Authentication & Upload Flows
 
 #### Login Flow
-1. **User** enters credentials on `LoginScreen`.
-2. **`AuthController.login()`** is called.
-3. **`AuthService.loginAsync()`** sends POST request.
-4. **API** returns `AuthResponse` (JWT + Refresh Token + User).
-5. **`AuthService`** writes tokens to `FlutterSecureStorage`.
-6. **`Helper`** (in provider) writes User object to storage.
-7. **`AuthController`** updates state to `AuthState.authenticated(user)`.
-8. **Router** (listening to state) allows navigation to `/home`.
+(Same as before, but handled via `AuthService.instance`)
 
-#### Refresh Token Flow
-1. **App** makes an API call with an expired JWT.
-2. **API** returns `401 Unauthorized`.
-3. **`AuthInterceptor`** catches the error.
-4. **Interceptor** calls `/refresh-token` with the stored refresh token.
-5. **API** returns new tokens.
-6. **Interceptor** saves new tokens and retries the original API call.
-7. **Result**: Seamless experience; user never knows the token expired.
-
-### Cold Boot Persistence (Strict Mode)
-
-To prevent the "flicker" of the login screen on app restart (Cold Boot), we use a **Strict Initialization** pattern in `main.dart`:
-
-1. **Manual Read**: Before `runApp()`, we await `FlutterSecureStorage.read()` for the token and user.
-2. **State Injection**: We create a `ProviderContainer` and **override** the `authControllerProvider` with the pre-loaded state.
-   ```dart
-   final container = ProviderContainer(
-     overrides: [
-       if (token != null)
-         authControllerProvider.overrideWith(() => AuthController(AuthState.authenticated(user)))
-     ]
-   );
-   ```
-3. **Uncontrolled Scope**: We pass this warmed-up container to the app via `UncontrolledProviderScope`.
-4. **Router Ready**: The `GoRouter` sees the authenticated state immediately and renders `/home` directly, skipping any loading listeners.
+#### Robust Upload & Refresh Flow (Explicit)
+Instead of relying on a hidden interceptor queue, services now use `safeRequest()`:
+1. **Service** calls `safeRequest()`.
+2. **`safeRequest`** attaches the token.
+3. **If 401 occurs**:
+   - Explicitly calls `await AuthService.instance.refresh()`.
+   - If successful, retries the request immediately.
+   - If failed, throws error.
+4. **If Network Error (500/Timeout)**:
+   - Retries up to 3 times with exponential backoff.
+5. **If All Fails**:
+   - `TrailApiService` catches the final exception.
+   - Saves the payload to **Local Drafts** (`/draft_trails`).
+   - User gets a "Saved to Drafts" notification.
 
 ### Directory Structure
 
@@ -86,7 +73,8 @@ To prevent the "flicker" of the login screen on app restart (Cold Boot), we use 
 lib/
 ├── core/
 │   └── network/
-│       └── auth_interceptor.dart  <-- Dio Interceptor
+│       ├── auth_interceptor.dart  <-- Token Injection
+│       └── base_api_service.dart  <-- Robust Wrapper
 ├── features/
 │   └── auth/
 │       ├── models/
@@ -95,7 +83,7 @@ lib/
 │       ├── providers/
 │       │   └── auth_provider.dart <-- Riverpod Controller
 │       ├── services/
-│       │   └── auth_service.dart  <-- API Calls
+│       │   └── auth_service.dart  <-- Singleton Logic
 │       └── screens/
 │           └── login_screen.dart  <-- UI
 └── main.dart                      <-- Strict Initialization
