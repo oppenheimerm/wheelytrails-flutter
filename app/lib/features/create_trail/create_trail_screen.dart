@@ -6,6 +6,7 @@ import 'package:app/widgets/stat_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app/core/services/preferences_service.dart';
+import 'package:app/features/trail/services/trail_api_service.dart';
 import 'package:go_router/go_router.dart';
 
 class CreateTrailScreen extends ConsumerStatefulWidget {
@@ -108,17 +109,31 @@ class _CreateTrailScreenState extends ConsumerState<CreateTrailScreen> {
                 }
 
                 // Save
-                await controller.saveTrail(dto);
+                final result = await controller.saveTrail(dto);
 
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Trail saved successfully!'),
-                      backgroundColor: Colors.green,
-                      duration: Duration(seconds: 3),
-                    ),
-                  );
+
+                  if (result == CreateTrailResult.success) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Trail saved successfully!'),
+                        backgroundColor: Colors.green,
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
+                  } else {
+                    // Offline Draft
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Upload failed. Trail saved to your device and will sync later.',
+                        ),
+                        duration: Duration(seconds: 4),
+                      ),
+                    );
+                  }
+
                   // Reset controller and navigate home
                   controller.reset();
                   // Using GoRouter to navigate home

@@ -122,8 +122,8 @@ class TrailRecordController extends StateNotifier<TrailRecordState> {
     return StopRecordingResult.success;
   }
 
-  Future<void> saveTrail(CreateTrailDTO dto) async {
-    await _apiService.createTrail(dto);
+  Future<CreateTrailResult> saveTrail(CreateTrailDTO dto) async {
+    return await _apiService.createTrail(dto);
   }
 
   void reset() {

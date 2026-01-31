@@ -27,7 +27,7 @@ final dioProvider = Provider<Dio>((ref) {
   // Storage is instantiated inside AuthInterceptor now.
 
   // Add Interceptors
-  dio.interceptors.add(AuthInterceptor(dio));
+  dio.interceptors.add(AuthInterceptor());
 
   // Retry Logic
   dio.interceptors.add(
@@ -105,15 +105,8 @@ final publicDioProvider = Provider<Dio>((ref) {
 
 // Auth Service Provider
 final authServiceProvider = Provider<AuthService>((ref) {
-  print('DEBUG: Initializing authServiceProvider...');
-  final storage = const FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
-  );
-  final authDio = ref.watch(dioProvider);
-  print(
-    'DEBUG: authServiceProvider creating AuthService with watched dioProvider',
-  );
-  return AuthService(storage, authDio);
+  print('DEBUG: Initializing authServiceProvider (Singleton)...');
+  return AuthService.instance;
 });
 
 // Countries Provider
