@@ -1,5 +1,6 @@
 import 'package:app/core/providers/theme_provider.dart';
 import 'package:app/features/auth/providers/auth_provider.dart';
+import 'package:app/core/services/preferences_service.dart'; // Add import
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -130,19 +131,14 @@ class SettingsScreen extends ConsumerWidget {
                     Icons.warning_amber_rounded,
                     color: colorScheme.primary,
                   ),
-                  value:
-                      user?.showRecordingWarning ??
-                      true, // Default to true or read from user
-                  onChanged: (value) {
-                    // TODO: Implement toggle for safety setting via API or local state
-                    // For now, it's illustrative as we don't have a user update endpoint ready in this context
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Safety setting update not implemented yet.',
-                        ),
-                      ),
-                    );
+                  value: ref
+                      .watch(preferencesServiceProvider)
+                      .showRecordingWarning,
+                  onChanged: (value) async {
+                    await ref
+                        .read(preferencesServiceProvider)
+                        .setShowRecordingWarning(value);
+                    ref.invalidate(preferencesServiceProvider);
                   },
                 ),
               ],

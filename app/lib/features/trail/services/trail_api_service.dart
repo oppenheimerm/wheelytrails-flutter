@@ -10,17 +10,19 @@ import 'package:app/features/trail/models/trail_models.dart';
 
 final trailApiServiceProvider = Provider<TrailApiService>((ref) {
   final dio = ref.watch(dioProvider);
-  return TrailApiService(dio);
+  final publicDio = ref.watch(publicDioProvider);
+  return TrailApiService(dio, publicDio);
 });
 
 class TrailApiService {
   final Dio _dio;
+  final Dio _publicDio;
 
-  TrailApiService(this._dio);
+  TrailApiService(this._dio, this._publicDio);
 
   Future<void> logTrailDev(WtTrail trail) async {
     try {
-      await _dio.post('/api/dev/log-trail', data: trail.toJson());
+      await _publicDio.post('/api/dev/log-trail', data: trail.toJson());
     } catch (e) {
       // "Just print the error to the console"
       print('Dev Log Failed: $e');

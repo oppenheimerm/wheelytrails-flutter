@@ -1,96 +1,61 @@
 import 'package:app/features/auth/models/auth_response.dart';
-import 'package:app/features/auth/providers/auth_provider.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+/*
+  ApplicationUser Changes: Because we removed those legacy properties, the 
+  newJwt in the response will be smaller, and your local user model won't 
+  crash when it parses the new token.
+
+  DevLog Security: Since you've made the api/dev/log-trail endpoint 
+  [AllowAnonymous], you should have a separate public Dio instance 
+  (without this interceptor) specifically for logging. This way, if the 
+  refresh fails, you can still send a log saying "Refresh Failed" without 
+  getting another 401.
+ */
+
 class AuthInterceptor extends QueuedInterceptor {
-  final Dio _dio;
-  final FlutterSecureStorage _storage;
-  final Ref _ref;
+  final Dio mainDio;
+  // Use a separate Dio instance for refreshing to avoid deadlocks
+  final Dio refreshDio = Dio(
+    BaseOptions(baseUrl: 'https://api.wheelytrails.com'),
+  );
 
-  AuthInterceptor(this._dio, this._storage, this._ref);
-
-  @override
-  void onRequest(
-    RequestOptions options,
-    RequestInterceptorHandler handler,
-  ) async {
-    print('DEBUG: AuthInterceptor.onRequest for ${options.path}');
-    try {
-      final token = await _storage.read(key: 'jwtToken');
-      if (token != null) {
-        options.headers['Authorization'] =
-            'Bearer $token'; // Ensure Bearer scheme
-      }
-      handler.next(options);
-    } catch (e) {
-      print('DEBUG: AuthInterceptor error reading token: $e');
-      handler.next(options);
-    }
-  }
+  AuthInterceptor(this.mainDio);
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     if (err.response?.statusCode == 401) {
-      print('DEBUG: 401 Detected. Attempting refresh...');
+      final storage = const FlutterSecureStorage();
+      String? refreshToken = await storage.read(key: 'refreshToken');
 
-      final refreshToken = await _storage.read(key: 'refreshToken');
-      // final jwtToken = await _storage.read(key: 'jwtToken'); // Not needed for new endpoint?
+      try {
+        // 1. Attempt the refresh using the SEPARATE dio instance
+        final response = await refreshDio.post(
+          '/api/account/identity/refresh',
+          data: {'refreshToken': refreshToken},
+        );
 
-      if (refreshToken != null) {
-        try {
-          // Use a fresh Dio for refresh to avoid loops/interceptors
-          final refreshDio = Dio(
-            BaseOptions(
-              baseUrl: _dio.options.baseUrl,
-              connectTimeout: const Duration(seconds: 10),
-              receiveTimeout: const Duration(seconds: 10),
-            ),
-          );
+        if (response.statusCode == 200) {
+          final newJwt = response.data['jwtToken'];
+          final newRefresh = response.data['refreshToken'];
 
-          print('DEBUG: POSTing refresh token...');
-          // Updated payload as requested: {"refreshToken": "..."}
-          final response = await refreshDio.post(
-            'https://api.wheelytrails.com/api/account/identity/refresh-token',
-            data: {'refreshToken': refreshToken},
-          );
+          // 2. Save new tokens
+          await storage.write(key: 'jwtToken', value: newJwt);
+          await storage.write(key: 'refreshToken', value: newRefresh);
 
-          if (response.statusCode == 200) {
-            final authResponse = AuthResponse.fromJson(response.data);
-            if (authResponse.success && authResponse.jwtToken != null) {
-              print('DEBUG: Refresh successful. Saving new tokens.');
-              await _storage.write(
-                key: 'jwtToken',
-                value: authResponse.jwtToken,
-              );
-              await _storage.write(
-                key: 'refreshToken',
-                value: authResponse.refreshToken,
-              );
+          // 3. Update headers and RETRY the original request
+          err.requestOptions.headers['Authorization'] = 'Bearer $newJwt';
 
-              // Retry the original request
-              final options = err.requestOptions;
-              options.headers['Authorization'] =
-                  'Bearer ${authResponse.jwtToken}';
-
-              final cloneReq = await _dio.fetch(options);
-              return handler.resolve(cloneReq);
-            }
-          }
-        } catch (e) {
-          print('DEBUG: Refresh failed: $e');
+          // We use mainDio.fetch here to put the request back into the stream
+          final responseRetry = await mainDio.fetch(err.requestOptions);
+          return handler.resolve(responseRetry);
         }
+      } catch (refreshErr) {
+        // If refresh fails, the session is truly dead
+        // Log out user/Redirect to login
       }
-
-      // If we reach here, refresh failed or no token.
-      print(
-        'DEBUG: Refresh failed or invalid. Clearing session and logging out.',
-      );
-      await _storage.deleteAll();
-      // Trigger logout in AuthController lazily to update UI
-      _ref.read(authControllerProvider.notifier).logout();
     }
-    handler.next(err);
+    return super.onError(err, handler);
   }
 }

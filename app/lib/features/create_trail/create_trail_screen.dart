@@ -5,6 +5,8 @@ import 'package:app/features/trail/presentation/widgets/poi_selection_sheet.dart
 import 'package:app/widgets/stat_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:app/core/services/preferences_service.dart';
+import 'package:go_router/go_router.dart';
 
 class CreateTrailScreen extends ConsumerStatefulWidget {
   const CreateTrailScreen({super.key});
@@ -83,22 +85,54 @@ class _CreateTrailScreenState extends ConsumerState<CreateTrailScreen> {
               );
 
               try {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Row(
+                        children: [
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          ),
+                          SizedBox(width: 16),
+                          Text('Saving trail...'),
+                        ],
+                      ),
+                      duration: Duration(days: 1), // Indefinite until dismissed
+                    ),
+                  );
+                }
+
                 // Save
                 await controller.saveTrail(dto);
+
                 if (context.mounted) {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Trail saved successfully!'),
                       backgroundColor: Colors.green,
+                      duration: Duration(seconds: 3),
                     ),
                   );
-                  // Reset controller to go back to start
+                  // Reset controller and navigate home
                   controller.reset();
+                  // Using GoRouter to navigate home
+                  context.go('/home');
                 }
               } catch (e) {
                 if (context.mounted) {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error saving trail: $e')),
+                    SnackBar(
+                      content: Text('Error saving trail: $e'),
+                      backgroundColor: Colors.red,
+                      duration: const Duration(seconds: 3),
+                    ),
                   );
                 }
               }
@@ -148,7 +182,12 @@ class _CreateTrailScreenState extends ConsumerState<CreateTrailScreen> {
             const SizedBox(height: 32),
             FilledButton.icon(
               onPressed: () {
-                _showBitrateWarning(context);
+                final showWarning = ref
+                    .read(preferencesServiceProvider)
+                    .showRecordingWarning;
+                if (showWarning) {
+                  _showBitrateWarning(context);
+                }
                 controller.startRecording();
               },
               icon: const Icon(Icons.play_arrow),

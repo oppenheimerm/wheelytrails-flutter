@@ -21,12 +21,13 @@ final dioProvider = Provider<Dio>((ref) {
     ),
   );
   // Using encryptedSharedPreferences: true for Android persistence fix
-  final storage = const FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
-  );
+  // final storage = const FlutterSecureStorage(
+  //   aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  // );
+  // Storage is instantiated inside AuthInterceptor now.
 
   // Add Interceptors
-  dio.interceptors.add(AuthInterceptor(dio, storage, ref));
+  dio.interceptors.add(AuthInterceptor(dio));
 
   // Retry Logic
   dio.interceptors.add(
@@ -58,6 +59,47 @@ final dioProvider = Provider<Dio>((ref) {
   print(
     'DEBUG: dioProvider initialized with Auth, Retry, and Logger interceptors',
   );
+  return dio;
+});
+
+// Public Dio Provider (No Auth Interceptor)
+final publicDioProvider = Provider<Dio>((ref) {
+  print('DEBUG: Initializing publicDioProvider...');
+  final dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 10),
+      baseUrl: 'https://api.wheelytrails.com',
+    ),
+  );
+
+  // Retry Logic
+  dio.interceptors.add(
+    RetryInterceptor(
+      dio: dio,
+      logPrint: print,
+      retries: 3,
+      retryDelays: const [
+        Duration(seconds: 1),
+        Duration(seconds: 2),
+        Duration(seconds: 3),
+      ],
+    ),
+  );
+
+  // Pretty Logging
+  dio.interceptors.add(
+    PrettyDioLogger(
+      requestHeader: true,
+      requestBody: true,
+      responseHeader: false,
+      responseBody: true,
+      error: true,
+      compact: true,
+      maxWidth: 90,
+    ),
+  );
+
   return dio;
 });
 
@@ -207,7 +249,6 @@ class AuthController extends Notifier<AuthState> {
         'firstName': firstName,
         'bio': bio,
         'countryCode': countryCode,
-        'gpsAccuracy': 1,
       });
       print('DEBUG: authService.updateSettings returned: $updatedSettingsMap');
 
@@ -219,8 +260,6 @@ class AuthController extends Notifier<AuthState> {
             firstName: updatedSettingsMap['firstName'] as String?,
             bio: updatedSettingsMap['bio'] as String?,
             countryCode: updatedSettingsMap['countryCode'] as String?,
-            gpsAccuracy: (updatedSettingsMap['gpsAccuracy'] as num?)
-                ?.toDouble(),
           );
           await Helper.storeUser(mergedUser);
           state = AuthState.authenticated(mergedUser);

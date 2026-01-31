@@ -3,6 +3,7 @@ import 'package:app/features/auth/providers/auth_provider.dart';
 import 'package:app/features/trail/models/trail_models.dart';
 import 'package:app/features/trail/services/location_service.dart';
 import 'package:app/features/trail/services/trail_api_service.dart';
+import 'package:app/core/services/preferences_service.dart'; // Add import
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -66,10 +67,12 @@ final trailRecordControllerProvider =
       final authState = ref.read(authControllerProvider);
       final countries = ref.read(countriesProvider).asData?.value ?? [];
       final apiService = ref.read(trailApiServiceProvider);
+      final prefsService = ref.read(preferencesServiceProvider);
 
       return TrailRecordController(
         locationService,
         apiService,
+        prefsService,
         authUser: authState.user,
         countries: countries,
       );
@@ -78,6 +81,7 @@ final trailRecordControllerProvider =
 class TrailRecordController extends StateNotifier<TrailRecordState> {
   final LocationService _locationService;
   final TrailApiService _apiService;
+  final PreferencesService _prefsService;
   final dynamic _authUser;
   final List<dynamic> _countries;
 
@@ -87,7 +91,8 @@ class TrailRecordController extends StateNotifier<TrailRecordState> {
 
   TrailRecordController(
     this._locationService,
-    this._apiService, {
+    this._apiService,
+    this._prefsService, {
     required dynamic authUser,
     required List<dynamic> countries,
   }) : _authUser = authUser,
@@ -230,47 +235,56 @@ class TrailRecordController extends StateNotifier<TrailRecordState> {
 
   void _startGpsStream() {
     _positionSubscription?.cancel();
-    _positionSubscription = _locationService.getPositionStream().listen((
-      position,
-    ) {
-      final latLng = LatLng(position.latitude, position.longitude);
-      final wtLatLng = WtLatLng(
-        position.latitude,
-        position.longitude,
-        altitude: position.altitude,
-        timestamp: position.timestamp,
-      );
 
-      var newState = state.copyWith(
-        lastKnownLocation: latLng,
-        currentElevation: position.altitude,
-      );
+    // Read user preference for accuracy (interpreted as distance filter)
+    final distanceFilter = _prefsService.createTrailGpsAccuracy.toInt();
 
-      if (state.isRecording && !state.isPaused) {
-        // Determine if we should add the point (Distance filter check)
-        // Geolocator stream already has distanceFilter=5m, so we can trust the stream events
-        // essentially represent ~5m moves.
+    final locationSettings = LocationSettings(
+      accuracy: LocationAccuracy.bestForNavigation,
+      distanceFilter: distanceFilter, // Use User Setting
+    );
 
-        double newDist = state.distanceKm;
-        if (state.points.isNotEmpty) {
-          final last = state.points.last;
-          final distMeters = Geolocator.distanceBetween(
-            last.lat,
-            last.lng,
-            wtLatLng.lat,
-            wtLatLng.lng,
+    _positionSubscription = _locationService
+        .getPositionStream(locationSettings: locationSettings)
+        .listen((position) {
+          final latLng = LatLng(position.latitude, position.longitude);
+          final wtLatLng = WtLatLng(
+            position.latitude,
+            position.longitude,
+            altitude: position.altitude,
+            timestamp: position.timestamp,
           );
-          newDist += (distMeters / 1000.0);
-        }
 
-        newState = newState.copyWith(
-          points: [...state.points, wtLatLng],
-          distanceKm: newDist,
-        );
-      }
+          var newState = state.copyWith(
+            lastKnownLocation: latLng,
+            currentElevation: position.altitude,
+          );
 
-      state = newState;
-    });
+          if (state.isRecording && !state.isPaused) {
+            // Determine if we should add the point (Distance filter check)
+            // Geolocator stream already has distanceFilter=5m, so we can trust the stream events
+            // essentially represent ~5m moves.
+
+            double newDist = state.distanceKm;
+            if (state.points.isNotEmpty) {
+              final last = state.points.last;
+              final distMeters = Geolocator.distanceBetween(
+                last.lat,
+                last.lng,
+                wtLatLng.lat,
+                wtLatLng.lng,
+              );
+              newDist += (distMeters / 1000.0);
+            }
+
+            newState = newState.copyWith(
+              points: [...state.points, wtLatLng],
+              distanceKm: newDist,
+            );
+          }
+
+          state = newState;
+        });
   }
 
   @override
