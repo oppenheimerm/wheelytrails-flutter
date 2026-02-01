@@ -1,0 +1,22 @@
+--- Starting Diagnostic: Naked POST ---
+Target URL: https://api.wheelytrails.com/api/dev/log-trail
+Payload: {title: Diagnostic, errorMessage: Testing raw connection}
+Authorization: NONE (Intentional)
+
+[FAILURE] DioException
+Type: DioExceptionType.badResponse
+Message: This exception was thrown because the response has a status code of 400 and RequestOptions.validateStatus was configured to throw for this status code.
+The status code of 400 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled"
+Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.
+
+Status: 400
+Data: {type: https://tools.ietf.org/html/rfc9110#section-15.5.1, title: One or more validation errors occurred., status: 400, errors: {End: [The End field is required.], Start: [The Start field is required.]}, traceId: 00-5abb9ed3e68816c4c9aea8fe948e5f66-9187a3b976a17f24-00}
+Headers: content-type: application/problem+json; charset=utf-8
+request-context: appId=cid-v1:5b6147cd-6422-474d-b173-52922eaf24d0
+transfer-encoding: chunked
+date: Sun, 01 Feb 2026 13:01:14 GMT
+server: Kestrel
+
+
+>>> CONCLUSION: The issue is likely Server-Side (CORS, Firewall) or Network.
