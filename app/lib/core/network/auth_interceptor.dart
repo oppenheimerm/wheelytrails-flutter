@@ -1,4 +1,3 @@
-import 'package:app/features/auth/models/auth_response.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 

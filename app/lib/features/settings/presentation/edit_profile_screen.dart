@@ -68,32 +68,37 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     if (_formKey.currentState!.validate()) {
       print('DEBUG: Form validated');
 
-      // Dismiss keyboard
       FocusScope.of(context).unfocus();
-
-      // Start Saving - No SetState
       _saveStateNotifier.value = SaveState.saving;
 
       try {
         print('DEBUG: Calling updateProfile');
 
-        // Calls API and now updates state internally on success
+        // 1. Wait for the API and Provider to finish their work
         await ref
             .read(authControllerProvider.notifier)
             .updateProfile(
               firstName: _firstNameController.text.trim(),
               bio: _bioController.text.trim(),
-              countryCode: _selectedCountryCode!, // Validated by form
+              countryCode: _selectedCountryCode!,
             );
 
         print('DEBUG: updateProfile success');
-
-        // Immediate Visual Feedback
         HapticFeedback.lightImpact();
 
-        // Mark Saved - No SetState needed for full screen
+        // 2. CHECK if the user hasn't closed the screen manually while waiting
         if (mounted) {
+          // 3. Show the "Green Check" status
           _saveStateNotifier.value = SaveState.saved;
+
+          // 4. THE FINISHING TOUCH:
+          // Wait 600ms so they can actually see the "Saved" text/icon,
+          // then automatically go back to the previous screen.
+          Future.delayed(const Duration(milliseconds: 600), () {
+            if (mounted) {
+              Navigator.of(context).pop();
+            }
+          });
         }
       } catch (e) {
         print('DEBUG: _saveProfile caught error: $e');
@@ -202,7 +207,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   ),
                   const SizedBox(height: 24),
                   DropdownButtonFormField<String>(
-                    value: _selectedCountryCode,
+                    initialValue: _selectedCountryCode,
                     decoration: const InputDecoration(
                       labelText: 'Country',
                       border: OutlineInputBorder(),
