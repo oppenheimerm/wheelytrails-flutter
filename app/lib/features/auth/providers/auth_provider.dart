@@ -5,6 +5,7 @@ import 'package:app/features/auth/models/user.dart';
 import 'package:app/features/auth/models/country.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_smart_retry/dio_smart_retry.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:app/core/network/auth_interceptor.dart';
@@ -220,8 +221,14 @@ class AuthController extends Notifier<AuthState> {
 
   Future<void> logout() async {
     final authService = ref.read(authServiceProvider);
+
+    // 1. Wipe the tokens and handshake from the disk
     await authService.logoutAsync();
+
+    // 2. Wipe the local 'user' helper data
     await Helper.clearUser();
+
+    // 3. Move the app back to the 'Logged Out' screen
     state = AuthState.unauthenticated();
   }
 
@@ -231,31 +238,40 @@ class AuthController extends Notifier<AuthState> {
     required String countryCode,
   }) async {
     print('DEBUG: AuthController.updateProfile called');
-    // Note: NOT setting state.isLoading = true here to avoid global rebuilds.
-    // The UI should handle its own loading state.
 
     try {
       final authService = ref.read(authServiceProvider);
-      // 2. Call Service
-      print('DEBUG: Calling authService.updateSettings...');
-      final updatedSettingsMap = await authService.updateSettings({
-        'firstName': firstName,
-        'bio': bio,
-        'countryCode': countryCode,
-      });
-      print('DEBUG: authService.updateSettings returned: $updatedSettingsMap');
 
-      if (updatedSettingsMap != null) {
-        // 3. Update Local State via Merge Strategy
+      // 1. Call Service
+      final responseMap = await authService.updateSettings({
+        'FirstName': firstName, // Use PascalCase to match your C# properties
+        'Bio': bio,
+        'CountryCode': countryCode,
+      });
+
+      // 2. Extract data from the nested 'updatedSettings' key
+      if (responseMap != null && responseMap['success'] == true) {
+        final updatedData =
+            responseMap['updatedSettings'] as Map<String, dynamic>;
+
         final currentUser = state.user;
         if (currentUser != null) {
+          // 3. Create the merged user object
           final mergedUser = currentUser.copyWith(
-            firstName: updatedSettingsMap['firstName'] as String?,
-            bio: updatedSettingsMap['bio'] as String?,
-            countryCode: updatedSettingsMap['countryCode'] as String?,
+            firstName: updatedData['firstName'] as String?,
+            bio: updatedData['bio'] as String?,
+            countryCode: updatedData['countryCode'] as String?,
           );
+
+          // 4. Persist to local storage so it survives app restarts
           await Helper.storeUser(mergedUser);
+
+          // 5. Update the Riverpod state (This triggers the UI rebuild)
           state = AuthState.authenticated(mergedUser);
+
+          print(
+            'DEBUG: AuthProvider state updated with: ${mergedUser.firstName}',
+          );
         }
       }
     } catch (e) {
@@ -267,8 +283,11 @@ class AuthController extends Notifier<AuthState> {
 
 // Helper class
 class Helper {
+  // Universal configuration for all platforms
   static const _storage = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
+    wOptions: WindowsOptions(),
   );
 
   static Future<User?> getStoredUser() async {
@@ -277,7 +296,9 @@ class Helper {
       if (str != null) {
         return User.fromJson(jsonDecode(str));
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('AUTH_HELPER_ERROR: $e');
+    }
     return null;
   }
 
@@ -288,6 +309,7 @@ class Helper {
   }
 
   static Future<void> clearUser() async {
-    await _storage.delete(key: 'user');
+    // This clears the user object and the tokens to ensure a clean logout
+    await _storage.deleteAll();
   }
 }

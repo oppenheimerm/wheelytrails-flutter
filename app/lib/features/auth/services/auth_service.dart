@@ -1,21 +1,25 @@
+import 'package:app/core/api_constants.dart';
 import 'package:app/features/auth/models/auth_response.dart';
 import 'package:app/features/auth/models/user.dart';
 import 'package:app/features/auth/models/country.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter/material.dart';
 
 class AuthService {
   // Singleton Pattern
   static final AuthService instance = AuthService._internal();
   factory AuthService() => instance;
 
-  AuthService._internal() {
-    // Add logging to internal dio if desired
-    // _dio.interceptors.add(PrettyDioLogger(...));
-  }
+  AuthService._internal();
 
-  final _storage = const FlutterSecureStorage();
-  final _dio = Dio(BaseOptions(baseUrl: 'https://api.wheelytrails.com'));
+  // 1. Explicitly define the options
+  final _storage = const FlutterSecureStorage(
+    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    // Simply initialize WindowsOptions without the undefined containerName
+    wOptions: WindowsOptions(),
+  );
 
   bool get isLoggedIn =>
       false; // Logic not fully implemented in valid/invalid check here?
@@ -54,8 +58,8 @@ class AuthService {
       // I will use /api/account/identity/refresh as it was verified working in TrailApiService most recently (or confirmed by user context).
       // Actually, let's use the one from TrailApiService success: /api/account/identity/refresh
 
-      final response = await _dio.post(
-        '/api/account/identity/refresh',
+      final response = await Dio().post(
+        ApiConstants.fullUrl(ApiConstants.refreshToken),
         data: {
           'refreshToken': refreshToken,
         }, // The working payload from TrailApiService
@@ -89,13 +93,18 @@ class AuthService {
   }
 
   Future<void> logoutAsync() async {
+    // This clears EVERYTHING: jwtToken, refreshToken, user, and our handshake
     await _storage.deleteAll();
+
+    // Verification for your debug console
+    final all = await _storage.readAll();
+    debugPrint("🧹 Logout: Secure storage is now empty: ${all.isEmpty}");
   }
 
   Future<User?> loginAsync(String email, String password) async {
     try {
-      final response = await _dio.post(
-        '/api/account/identity/login',
+      final response = await Dio().post(
+        ApiConstants.fullUrl(ApiConstants.login),
         data: {'email': email, 'password': password},
       );
 
@@ -122,53 +131,48 @@ class AuthService {
   Future<Map<String, dynamic>?> updateSettings(
     Map<String, dynamic> settings,
   ) async {
-    print('DEBUG: AuthService.updateSettings called with $settings');
+    debugPrint('DEBUG: AuthService.updateSettings called with $settings');
+
     try {
-      // Need to manually attach auth header since we use internal _dio without interceptor
+      // 1. Stick to the proven Lab flow: Force a refresh first
+      await refresh();
+
+      // 2. Get the new token from our fixed storage
       final token = await _storage.read(key: 'jwtToken');
       if (token == null) throw Exception('Not authenticated');
 
-      final response = await _dio.put(
-        '/api/Account/identity/update-settings',
+      // 3. Use the standalone Dio() with the FULL URL
+      // This matches your successful Favorites screen test
+      final response = await Dio().put(
+        ApiConstants.fullUrl(ApiConstants.updateSettings),
         data: settings,
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+        ),
       );
-      print('DEBUG: API Response status: ${response.statusCode}');
+
+      debugPrint('DEBUG: API Response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        if (response.data != null) {
-          final data = response.data;
-          if (data is Map<String, dynamic> &&
-              data.containsKey('updatedSettings')) {
-            final updatedSettings =
-                data['updatedSettings'] as Map<String, dynamic>;
-            return updatedSettings;
-          }
-          return null;
-        }
+        // Return the data so the UI can update
+        return response.data;
       }
       return null;
     } on DioException catch (e) {
-      // Logic from before
-      print('DEBUG: AuthService DioError: ${e.message}');
-      if (e.response?.statusCode == 400) {
-        print('DEBUG: Validation Error Data: ${e.response?.data}');
-      }
-      // Retry on 401 Logic?
-      // User requirement: "Update TrailApiService so it calls AuthService.instance.refresh()..." implies separation.
-      // But updateSettings is IN here.
-      // If updateSettings fails 401, we might want to refresh and retry too.
-      // For now I'll just rethrow to stay simple, or implement simple retry.
-      rethrow;
-    } catch (e) {
-      print('DEBUG: AuthService General Error: $e');
+      debugPrint('DEBUG: Settings Update Failed: ${e.response?.statusCode}');
+      debugPrint('DEBUG: Error Data: ${e.response?.data}');
       rethrow;
     }
   }
 
   Future<List<Country>> fetchCountries() async {
     try {
-      final response = await _dio.get('/api/Account/metadata/countries');
+      final response = await Dio().get(
+        ApiConstants.fullUrl(ApiConstants.getCountries),
+      );
 
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data;

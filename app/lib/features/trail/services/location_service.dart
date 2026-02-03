@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart'; // Likely needed if Position is confused or if user wants maps here
+// Likely needed if Position is confused or if user wants maps here
 
 /// Provider to access the authentic LocationService instance
 final locationServiceProvider = Provider<LocationService>((ref) {
