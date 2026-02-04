@@ -7,8 +7,12 @@ class ApiConstants {
   static const String updateSettings = '/api/account/identity/update-settings';
 
   // Trails Endpoints
-  static const String logTrail = '/api/dev/log-trail';
-  static const String getCountries = '/api/Account/metadata/countries';
+  static const String createTrail = '/api/trails';
+
+  //  Metadata Endpoints
+  static const String getCountries = '/api/metadata/countries';
+  static const String getDifficulties = '/api/metadata/trail-difficulties';
+  static const String getSurfaces = '/api/metadata/surface-types';
 
   // A helper to get the full URL safely
   static String fullUrl(String endpoint) => '$baseUrl$endpoint';
