@@ -196,7 +196,7 @@ class _CreateTrailScreenState extends ConsumerState<CreateTrailScreen> {
             surfaces: metadata.surfaces,
             onCancel: _showDiscardDialog,
             onSave: (title, description, difficultyCode, surfaceCode) async {
-              // 1. Prepare the Data
+              // 1. Package the data exactly as the API expects
               final dto = CreateTrailDTO(
                 title: title,
                 description: description,
@@ -212,21 +212,48 @@ class _CreateTrailScreenState extends ConsumerState<CreateTrailScreen> {
                 lengthMeters: state.distanceKm * 1000,
               );
 
-              // 2. Submit to API
+              print('📡 [DEBUG] Starting Save Process...');
+
+              // 2. Await the controller. This is the crucial "Wait" step.
               final result = await controller.saveTrail(dto);
 
-              // 3. Cleanup & Exit (This ensures the form closes and points are cleared)
+              print('📡 [DEBUG] API Result Received: $result');
+
+              // 3. Handle the outcome without guessing
               if (context.mounted) {
                 if (result == CreateTrailResult.success) {
+                  // HAPPY PATH: It's in Azure.
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Trail saved!'),
+                      content: Text('Trail uploaded to Azure!'),
                       backgroundColor: Colors.green,
                     ),
                   );
+                  controller.reset();
+                  context.go('/home');
+                } else if (result == CreateTrailResult.offlineDraft) {
+                  // OFFLINE PATH: It's on the phone as a JSON file.
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('No signal. Saved to local drafts.'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                  controller.reset();
+                  context.go('/home');
+                } else {
+                  // ERROR PATH: Something is wrong with the data or server.
+                  // WE DO NOT RESET HERE. We stay on the form so data isn't lost.
+                  print(
+                    '❌ [DEBUG] Save failed. Check Azure logs or DTO format.',
+                  );
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Error: Could not save trail. Try again.'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
                 }
-                controller.reset(); // Empties the points list
-                context.go('/home'); // Moves the user away from the form
               }
             },
           ),
