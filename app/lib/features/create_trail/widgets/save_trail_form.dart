@@ -86,9 +86,36 @@ class _SaveTrailFormState extends State<SaveTrailForm> {
               Text('Save Trail', style: blackBold.copyWith(fontSize: 24)),
               const SizedBox(height: 24),
 
-              // Title and Description... (Keep your existing TextFormFields)
+              // --- 1. TITLE ---
+              Text('Title', style: blackBold.copyWith(fontSize: 16)),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _titleController,
+                style: blackText,
+                decoration: const InputDecoration(
+                  hintText: 'e.g. Sunny Morning Walk',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (val) =>
+                    (val == null || val.isEmpty) ? 'Required' : null,
+              ),
+              const SizedBox(height: 24),
 
-              // Dynamic Difficulty Dropdown
+              // --- 2. DESCRIPTION ---
+              Text('Description', style: blackBold.copyWith(fontSize: 16)),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _descriptionController,
+                style: blackText,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  hintText: 'Tell others about this trail...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // --- 3. DIFFICULTY ---
               Text('Difficulty', style: blackBold.copyWith(fontSize: 16)),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
@@ -103,10 +130,9 @@ class _SaveTrailFormState extends State<SaveTrailForm> {
                     setState(() => _selectedDifficultyCode = val),
                 decoration: const InputDecoration(border: OutlineInputBorder()),
               ),
-
               const SizedBox(height: 24),
 
-              // Dynamic Surface Types Chips
+              // --- 4. SURFACE TYPE ---
               Text('Primary Surface', style: blackBold.copyWith(fontSize: 16)),
               const SizedBox(height: 8),
               Wrap(
@@ -131,7 +157,37 @@ class _SaveTrailFormState extends State<SaveTrailForm> {
               ),
 
               const SizedBox(height: 32),
-              // Actions (Cancel/Save Buttons)...
+
+              // --- 5. ACTION BUTTONS ---
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: widget.onCancel,
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _isSaving ? null : _submit,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF2D5A27),
+                      ),
+                      child: _isSaving
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text('Save Trail'),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
