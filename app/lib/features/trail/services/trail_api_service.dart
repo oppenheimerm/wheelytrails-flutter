@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:app/core/api_constants.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app/features/auth/providers/auth_provider.dart';
@@ -55,14 +56,26 @@ class TrailApiService extends BaseApiService {
   /// Returns CreateTrailResult to indicate if sync was immediate or saved as draft
   Future<CreateTrailResult> createTrail(CreateTrailDTO trailDto) async {
     try {
+      // 1. Attempt the standard authenticated request
       await safeRequest(
-        (dio) => dio.post('/api/trails', data: trailDto.toJson()),
+        (dio) => dio.post(
+          ApiConstants.createTrail, // /api/Trails
+          data: trailDto.toJson(),
+        ),
         payload: trailDto.toJson(),
       );
       return CreateTrailResult.success;
     } catch (e) {
-      // If safeRequest rethrows, save to Local Drafts here!
+      // 2. PRIMARY SYNC FAILED: Log the error to the dev endpoint
+      print('DEBUG: API Sync Failed: $e');
+
+      // We use _logFallback which uses the public (unauthenticated) Dio
+      // to ensure the error gets through even if auth was the issue.
+      await _logFallback(trailDto, e.toString());
+
+      // 3. Save locally so the user doesn't lose their hard-earned GPS data
       await _saveDraftLocally(trailDto);
+
       return CreateTrailResult.offlineDraft;
     }
   }

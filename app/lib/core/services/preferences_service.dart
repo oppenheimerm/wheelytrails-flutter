@@ -19,13 +19,21 @@ class PreferencesService {
 
   static const String _keyShowRecordingWarning = 'showRecordingWarning';
   static const String _keyCreateTrailGpsAccuracy = 'createTrailGpsAccuracy';
+  static const String _keyUseMetricUnits = 'useMetricUnits';
 
   // Show Recording Warning (Default: true)
   bool get showRecordingWarning =>
       _prefs.getBool(_keyShowRecordingWarning) ?? true;
 
+  // Use Metric Units (Default: true)
+  bool get useMetricUnits => _prefs.getBool(_keyUseMetricUnits) ?? true;
+
   Future<void> setShowRecordingWarning(bool value) async {
     await _prefs.setBool(_keyShowRecordingWarning, value);
+  }
+
+  Future<void> setUseMetricUnits(bool value) async {
+    await _prefs.setBool(_keyUseMetricUnits, value);
   }
 
   // Create Trail GPS Accuracy (Default: 5.0?)

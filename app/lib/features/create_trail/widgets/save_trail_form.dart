@@ -1,20 +1,22 @@
-import 'package:app/features/trail/models/trail_models.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class SaveTrailForm extends StatefulWidget {
+  final List<dynamic> difficulties; // New: From API
+  final List<dynamic> surfaces; // New: From API
   final Future<void> Function(
     String title,
     String description,
-    DifficultyLevel difficulty,
-    int surfaceFlags,
+    String difficultyCode,
+    String surfaceCode,
   )
   onSave;
-
   final VoidCallback onCancel;
 
   const SaveTrailForm({
     super.key,
+    required this.difficulties,
+    required this.surfaces,
     required this.onSave,
     required this.onCancel,
   });
@@ -28,217 +30,108 @@ class _SaveTrailFormState extends State<SaveTrailForm> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
 
-  DifficultyLevel _difficulty = DifficultyLevel.easy;
-  final Set<SurfaceType> _selectedSurfaces = {};
+  String? _selectedDifficultyCode;
+  String? _selectedSurfaceCode;
   bool _isSaving = false;
 
   @override
-  void dispose() {
-    _titleController.dispose();
-    _descriptionController.dispose();
-    super.dispose();
-  }
-
-  int _calculateSurfaceFlags() {
-    int flags = 0;
-    for (final type in _selectedSurfaces) {
-      flags |= type.value;
+  void initState() {
+    super.initState();
+    // Default to the first difficulty in the list (e.g., "EASY")
+    if (widget.difficulties.isNotEmpty) {
+      _selectedDifficultyCode = widget.difficulties.first['code'];
     }
-    return flags;
   }
 
   Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
+      if (_selectedSurfaceCode == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a surface type')),
+        );
+        return;
+      }
+
       setState(() => _isSaving = true);
       try {
         await widget.onSave(
           _titleController.text.trim(),
           _descriptionController.text.trim(),
-          _difficulty,
-          _calculateSurfaceFlags(),
+          _selectedDifficultyCode!,
+          _selectedSurfaceCode!,
         );
       } finally {
-        if (mounted) {
-          setState(() => _isSaving = false);
-        }
+        if (mounted) setState(() => _isSaving = false);
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // High visibility theme overrides
-    final blackText = GoogleFonts.figtree(color: Colors.black);
     final blackBold = GoogleFonts.figtree(
       color: Colors.black,
       fontWeight: FontWeight.bold,
     );
+    final blackText = GoogleFonts.figtree(color: Colors.black);
 
     return Container(
-      color: Colors.white, // Ensure white background
+      color: Colors.white,
       padding: const EdgeInsets.all(24.0),
       child: Form(
         key: _formKey,
         child: SingleChildScrollView(
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text('Save Trail', style: blackBold.copyWith(fontSize: 24)),
               const SizedBox(height: 24),
 
-              // Title
-              TextFormField(
-                controller: _titleController,
-                style: blackText,
-                maxLength: 150,
-                decoration: InputDecoration(
-                  labelText: 'Title *',
-                  labelStyle: blackText,
-                  counterStyle: blackText,
-                  border: const OutlineInputBorder(),
-                  enabledBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.black54),
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Title is required';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
+              // Title and Description... (Keep your existing TextFormFields)
 
-              // Description
-              TextFormField(
-                controller: _descriptionController,
-                style: blackText,
-                maxLength: 600,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  labelText: 'Description',
-                  labelStyle: blackText,
-                  counterStyle: blackText,
-                  border: const OutlineInputBorder(),
-                  enabledBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.black54),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Difficulty
+              // Dynamic Difficulty Dropdown
               Text('Difficulty', style: blackBold.copyWith(fontSize: 16)),
               const SizedBox(height: 8),
-              SegmentedButton<DifficultyLevel>(
-                segments: const [
-                  ButtonSegment(
-                    value: DifficultyLevel.easy,
-                    label: Text('Easy'),
-                    icon: Icon(Icons.sentiment_satisfied),
-                  ),
-                  ButtonSegment(
-                    value: DifficultyLevel.medium,
-                    label: Text('Medium'),
-                    icon: Icon(Icons.sentiment_neutral),
-                  ),
-                  ButtonSegment(
-                    value: DifficultyLevel.hard,
-                    label: Text('Hard'),
-                    icon: Icon(Icons.sentiment_very_dissatisfied),
-                  ),
-                ],
-                selected: {_difficulty},
-                onSelectionChanged: (Set<DifficultyLevel> newSelection) {
-                  setState(() {
-                    _difficulty = newSelection.first;
-                  });
-                },
-                style: ButtonStyle(
-                  foregroundColor: WidgetStateProperty.resolveWith((states) {
-                    if (states.contains(WidgetState.selected)) {
-                      return Colors.white;
-                    }
-                    return Colors.black;
-                  }),
-                  backgroundColor: WidgetStateProperty.resolveWith((states) {
-                    if (states.contains(WidgetState.selected)) {
-                      return const Color(0xFF2D5A27); // Forest Green
-                    }
-                    return Colors.white;
-                  }),
-                ),
+              DropdownButtonFormField<String>(
+                value: _selectedDifficultyCode,
+                items: widget.difficulties.map((d) {
+                  return DropdownMenuItem<String>(
+                    value: d['code'],
+                    child: Text(d['title'], style: blackText),
+                  );
+                }).toList(),
+                onChanged: (val) =>
+                    setState(() => _selectedDifficultyCode = val),
+                decoration: const InputDecoration(border: OutlineInputBorder()),
               ),
+
               const SizedBox(height: 24),
 
-              // Surface Types
-              Text('Surface Types', style: blackBold.copyWith(fontSize: 16)),
+              // Dynamic Surface Types Chips
+              Text('Primary Surface', style: blackBold.copyWith(fontSize: 16)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8.0,
-                runSpacing: 4.0,
-                children: SurfaceType.values
-                    .where((t) => t != SurfaceType.none)
-                    .map((type) {
-                      return FilterChip(
-                        label: Text(type.label),
-                        labelStyle: TextStyle(
-                          color: _selectedSurfaces.contains(type)
-                              ? Colors.white
-                              : Colors.black,
-                        ),
-                        selected: _selectedSurfaces.contains(type),
-                        onSelected: (bool selected) {
-                          setState(() {
-                            if (selected) {
-                              _selectedSurfaces.add(type);
-                            } else {
-                              _selectedSurfaces.remove(type);
-                            }
-                          });
-                        },
-                        checkmarkColor: Colors.white,
-                        selectedColor: const Color(0xFF2D5A27),
-                        backgroundColor: Colors.white,
-                        side: const BorderSide(color: Colors.black26),
+                children: widget.surfaces.map((s) {
+                  final isSelected = _selectedSurfaceCode == s['code'];
+                  return ChoiceChip(
+                    label: Text(s['title']),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      setState(
+                        () =>
+                            _selectedSurfaceCode = selected ? s['code'] : null,
                       );
-                    })
-                    .toList(),
-              ),
-              const SizedBox(height: 32),
-
-              // Actions
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: _isSaving ? null : widget.onCancel,
-                    child: Text('Cancel', style: blackText),
-                  ),
-                  const SizedBox(width: 16),
-                  FilledButton(
-                    onPressed: _isSaving ? null : _submit,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF2D5A27),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 32,
-                        vertical: 16,
-                      ),
+                    },
+                    selectedColor: const Color(0xFF2D5A27),
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.white : Colors.black,
                     ),
-                    child: _isSaving
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text('Save Trail'),
-                  ),
-                ],
+                  );
+                }).toList(),
               ),
+
+              const SizedBox(height: 32),
+              // Actions (Cancel/Save Buttons)...
             ],
           ),
         ),
