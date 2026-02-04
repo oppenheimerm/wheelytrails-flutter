@@ -1,11 +1,9 @@
-import 'dart:async';
 import 'package:app/core/services/preferences_service.dart';
 import 'package:app/features/trail/controllers/trail_record_controller.dart';
 import 'package:app/features/trail/presentation/widgets/poi_selection_sheet.dart';
 import 'package:app/features/trail/services/trail_api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:app/features/trail/providers/trail_metadata_provider.dart';
 import 'package:app/features/trail/models/trail_models.dart';

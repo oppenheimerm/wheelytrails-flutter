@@ -16,7 +16,7 @@ final trailApiServiceProvider = Provider<TrailApiService>((ref) {
   return TrailApiService(dio, publicDio);
 });
 
-enum CreateTrailResult { success, offlineDraft }
+enum CreateTrailResult { success, offlineDraft, serverError, networkError }
 
 class TrailApiService extends BaseApiService {
   final Dio _dio;
