@@ -1,8 +1,8 @@
+import 'package:app/core/api_constants.dart';
 import 'package:app/models/api_response_authentication.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:app/core/network/token_service.dart';
-import 'package:app/core/api_constants.dart';
+import 'token_service.dart';
 
 class MobileWebService {
   final Dio _httpClient;
@@ -11,94 +11,73 @@ class MobileWebService {
 
   MobileWebService(this._httpClient, this._tokenService, this._secureStorage);
 
-  /// Ensure the Authorization header is set (Manual port of EnsureAuthorizationHeaderAsync)
-Future<ApiResponseAuthentication?> _tryGetRefreshTokenAsync() async {
-  try {
-    // 1. Get the persistent refresh token from the vault
-    final refreshToken = await _secureStorage.read(key: 'refresh_token');
-    if (refreshToken == null) {
-      print("⚠️ No refresh token in SecureStorage. User must log in.");
-      return null;
-    }
+  // ---------------------------------------------------------------------------
+  // PUBLIC API: Presentation layer calls only these
+  // ---------------------------------------------------------------------------
 
-    // 2. Call the identity refresh endpoint
-    final response = await _httpClient.post(
-      ApiConstants.fullUrl(ApiConstants.refreshToken),
-      data: {"refreshToken": refreshToken},
-      // Important: clear headers so we don't send the expired Bearer token
-      options: Options(headers: {}), 
-    );
-
-    if (response.statusCode == 200) {
-      final result = ApiResponseAuthentication.fromJson(response.data);
-      
-      if (result.jwtToken != null) {
-        // 3. Sync back to memory immediately. 
-        // We pass 'null' for expiry since we are letting 401s handle it.
-        _tokenService.setAccessToken(result.jwtToken!, result.expiresAt);
-        
-        // 4. Update the current HTTP client's default header for future calls
-        _httpClient.options.headers["Authorization"] = "Bearer ${result.jwtToken}";
-        
-        print("✅ Token refreshed successfully.");
-        return result;
-      }
-    }
-    return null;
-  } catch (e) {
-    print("🔥 Refresh request failed: $e");
-    return null;
-  }
-}
-  // Ignore this method for now
-  /// THE CONVENTION: Standard Authenticated Request Loop
-  /*Future<ApiResponseAuthentication> getAccountSettingsAsync() async {
+  Future<bool> logDevMessageAsync(String message) async {
     const int maxRetries = 3;
     int currentAttempt = 0;
     bool tokenWasRefreshed = false;
 
-    try {
-      if (!await _ensureAuthorizationHeaderAsync()) {
-        return APIResponseViewAccountSettings(success: false, message: "User is not authenticated");
-      }
+    if (!await _ensureAuthorizationHeaderAsync()) return false;
 
-      while (currentAttempt < maxRetries) {
-        currentAttempt++;
-        try {
-          final response = await _httpClient.get("api/account/identity/settings");
-
-          if (response.statusCode == 200) {
-            return APIResponseViewAccountSettings.fromJson(response.data);
+    while (currentAttempt < maxRetries) {
+      currentAttempt++;
+      try {
+        final response = await _httpClient.post(
+          ApiConstants.fullUrl('api/dev/log-trail'),
+          data: {'Message': message},
+        );
+        return response.statusCode == 200 || response.statusCode == 201;
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 401 && !tokenWasRefreshed) {
+          if (await _tryGetRefreshTokenAsync() != null) {
+            tokenWasRefreshed = true;
+            currentAttempt--; 
+            continue;
           }
-        } on DioException catch (e) {
-          // UNAUTHORIZED
-          if (e.response?.statusCode == 401 && !tokenWasRefreshed) {
-            print("⚠️ Token expired, attempting refresh...");
-            final refreshed = await _tryGetRefreshTokenAsync();
-            
-            if (refreshed != null && refreshed.jwtToken != null) {
-              tokenWasRefreshed = true;
-              _httpClient.options.headers["Authorization"] = "Bearer ${refreshed.jwtToken}";
-              currentAttempt--; 
-              continue; 
-            } else {
-              return APIResponseViewAccountSettings(success: false, message: "Session expired.");
-            }
-          }
-          
-          // SERVER ERROR RETRY
-          if ((e.response?.statusCode ?? 500) >= 500) {
-            if (currentAttempt < maxRetries) {
-               await Future.delayed(Duration(seconds: currentAttempt));
-               continue;
-            }
-          }
-          break; // Exit loop on 4xx or fatal errors
         }
+        if ((e.response?.statusCode ?? 500) >= 500 && currentAttempt < maxRetries) {
+          await Future.delayed(Duration(seconds: currentAttempt));
+          continue;
+        }
+        break; 
       }
-      return APIResponseViewAccountSettings(success: false, message: "Request failed after retries.");
-    } catch (ex) {
-      return APIResponseViewAccountSettings(success: false, message: "Unexpected error: $ex");
     }
+    return false;
   }
-}*/
+
+  // ---------------------------------------------------------------------------
+  // PRIVATE LOGIC: Encapsulated "dirty work"
+  // ---------------------------------------------------------------------------
+
+  Future<bool> _ensureAuthorizationHeaderAsync() async {
+    if (_tokenService.accessToken != null && !_tokenService.isExpired()) {
+      _httpClient.options.headers["Authorization"] = "Bearer ${_tokenService.accessToken}";
+      return true;
+    }
+    return (await _tryGetRefreshTokenAsync()) != null;
+  }
+
+  Future<ApiResponseAuthentication?> _tryGetRefreshTokenAsync() async {
+    try {
+      final rt = await _secureStorage.read(key: 'refresh_token');
+      if (rt == null) return null;
+
+      final response = await _httpClient.post(
+        ApiConstants.fullUrl(ApiConstants.refreshToken),
+        data: {"refreshToken": rt},
+        options: Options(headers: {}), // Don't send old Bearer
+      );
+
+      if (response.statusCode == 200) {
+        final result = ApiResponseAuthentication.fromJson(response.data);
+        _tokenService.setAccessToken(result.jwtToken!, result.expiresAt);
+        _httpClient.options.headers["Authorization"] = "Bearer ${result.jwtToken}";
+        return result;
+      }
+    } catch (_) {}
+    return null;
+  }
+}
