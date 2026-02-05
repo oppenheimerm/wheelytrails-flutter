@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:app/core/network/token_service.dart';
+import 'package:app/core/providers/providers.dart';
 import 'package:app/features/auth/models/user.dart';
 import 'package:app/features/auth/providers/auth_provider.dart';
 import 'package:app/core/providers/theme_provider.dart'; // Import theme provider
@@ -9,7 +11,6 @@ import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPre
 import 'package:app/routing/app_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:app/core/services/preferences_service.dart';
-// import 'package:app/theme/app_theme.dart'; // Unused
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,6 +57,15 @@ Future<void> main() async {
     prefs = await SharedPreferences.getInstance(); // Retry or crash
   }
 
+  // ---------------------------------------------------------
+  // 🟢 NEW STEP 4a: Create the TokenService instance HERE
+  // This happens after you read the token but BEFORE you build the Container
+  // ---------------------------------------------------------
+  final tokenService = TokenService();
+  if (token != null) {
+    tokenService.setAccessToken(token, null);
+  }
+
   // 4. Construct Initial Auth State
   AuthState initialAuthState = AuthState.initial();
   if (token != null && user != null) {
@@ -65,6 +75,12 @@ Future<void> main() async {
   // 5. Create Container with Overrides
   final container = ProviderContainer(
     overrides: [
+      // -------------------------------------------------------
+      // 🟢 NEW OVERRIDE: Add this to your existing list
+      // This "teaches" the rest of the app to use our synced service
+      // -------------------------------------------------------
+      tokenServiceProvider.overrideWithValue(tokenService),
+
       authControllerProvider.overrideWith(
         () => AuthController(initialAuthState),
       ),
